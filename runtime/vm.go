@@ -46,13 +46,50 @@ func NewVM(bytecode *compiler.Bytecode, globals []objects.Object, maxAllocs int6
 	}
 
 	v := &VM{
-		constants:   bytecode.Constants,
 		sp:          0,
 		globals:     globals,
 		fileSet:     bytecode.FileSet,
 		framesIndex: 1,
 		ip:          -1,
 		maxAllocs:   maxAllocs,
+	}
+
+	v.constants = make([]objects.Object, len(bytecode.Constants))
+	for i, c := range bytecode.Constants {
+		v.constants[i] = c
+		if fn, ok := c.(*objects.CompiledFunction); ok {
+			fmt.Println("wrapping func:", fn)
+			fmt.Println("params:", fn.NumParameters)
+			fmt.Println("locals:", fn.NumLocals)
+			fn.Fn = func(args ...objects.Object) (objects.Object, error) {
+				v.stack[v.sp] = fn
+				v.sp++
+
+				for _, a := range args {
+					v.stack[v.sp] = a
+					v.sp++
+				}
+
+				locals := fn.NumLocals - fn.NumParameters
+				for i := 0; i < locals; i++ {
+					v.sp++
+				}
+
+				_, _ = v.handleCall(len(args))
+				if v.err != nil {
+					fmt.Println("call error: ", v.err)
+					return nil, v.err
+				}
+
+				ret := v.stack[v.sp]
+				if fn.VarArgs {
+					v.sp -= 2 + locals
+				} else {
+					v.sp -= len(args) + 1 + locals
+				}
+				return ret, nil
+			}
+		}
 	}
 
 	v.frames[0].fn = bytecode.MainFunction
@@ -101,6 +138,7 @@ func (v *VM) Run() (err error) {
 
 func (v *VM) run() {
 	defer func() {
+		// fmt.Println("run's deferred func ran")
 		if r := recover(); r != nil {
 			if v.sp >= StackSize || v.framesIndex >= MaxFrames {
 				v.err = ErrStackOverflow
@@ -638,152 +676,9 @@ func (v *VM) run() {
 			numArgs := int(v.curInsts[v.ip+1])
 			v.ip++
 
-			value := v.stack[v.sp-1-numArgs]
-
-			switch callee := value.(type) {
-			case *objects.Closure:
-				// consolidate args into an array
-				if callee.Fn.VarArgs {
-					passedArgs := numArgs
-					numArgs = 1
-					args := make([]objects.Object, 0, passedArgs)
-
-					if passedArgs == 0 {
-						v.stack[v.sp] = &objects.Array{Value: args}
-						v.sp++
-					} else {
-						for i := 0; i < passedArgs; i++ {
-							args = append(args, v.stack[v.sp-passedArgs+i])
-						}
-
-						v.stack[v.sp-passedArgs] = &objects.Array{Value: args}
-						v.sp = v.sp - (passedArgs - 1)
-					}
-				}
-
-				if numArgs != callee.Fn.NumParameters {
-					v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d",
-						callee.Fn.NumParameters, numArgs)
-					return
-				}
-
-				// test if it's tail-call
-				if callee.Fn == v.curFrame.fn { // recursion
-					nextOp := v.curInsts[v.ip+1]
-					if nextOp == compiler.OpReturn ||
-						(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
-						for p := 0; p < numArgs; p++ {
-							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-						}
-						v.sp -= numArgs + 1
-						v.ip = -1 // reset IP to beginning of the frame
-						continue
-					}
-				}
-
-				// update call frame
-				v.curFrame.ip = v.ip // store current ip before call
-				v.curFrame = &(v.frames[v.framesIndex])
-				v.curFrame.fn = callee.Fn
-				v.curFrame.freeVars = callee.Free
-				v.curFrame.basePointer = v.sp - numArgs
-				v.curInsts = callee.Fn.Instructions
-				v.ip = -1
-				v.framesIndex++
-				v.sp = v.sp - numArgs + callee.Fn.NumLocals
-
-			case *objects.CompiledFunction:
-				// consolidate args into an array
-				if callee.VarArgs {
-					passedArgs := numArgs
-					numArgs = 1
-					args := make([]objects.Object, 0, passedArgs)
-
-					if passedArgs == 0 {
-						v.stack[v.sp] = &objects.Array{Value: args}
-						v.sp++
-					} else {
-						for i := 0; i < passedArgs; i++ {
-							args = append(args, v.stack[v.sp-passedArgs+i])
-						}
-
-						v.stack[v.sp-passedArgs] = &objects.Array{Value: args}
-						v.sp = v.sp - (passedArgs - 1)
-					}
-				}
-
-				if numArgs != callee.NumParameters {
-					v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d",
-						callee.NumParameters, numArgs)
-					return
-				}
-
-				// test if it's tail-call
-				if callee == v.curFrame.fn { // recursion
-					nextOp := v.curInsts[v.ip+1]
-					if nextOp == compiler.OpReturn ||
-						(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
-						for p := 0; p < numArgs; p++ {
-							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-						}
-						v.sp -= numArgs + 1
-						v.ip = -1 // reset IP to beginning of the frame
-						continue
-					}
-				}
-
-				// update call frame
-				v.curFrame.ip = v.ip // store current ip before call
-				v.curFrame = &(v.frames[v.framesIndex])
-				v.curFrame.fn = callee
-				v.curFrame.freeVars = nil
-				v.curFrame.basePointer = v.sp - numArgs
-				v.curInsts = callee.Instructions
-				v.ip = -1
-				v.framesIndex++
-				v.sp = v.sp - numArgs + callee.NumLocals
-
-			case objects.Callable:
-				var args []objects.Object
-				args = append(args, v.stack[v.sp-numArgs:v.sp]...)
-
-				ret, e := callee.Call(args...)
-				v.sp -= numArgs + 1
-
-				// runtime error
-				if e != nil {
-					if e == objects.ErrWrongNumArguments {
-						v.err = fmt.Errorf("wrong number of arguments in call to '%s'",
-							value.TypeName())
-						return
-					}
-
-					if e, ok := e.(objects.ErrInvalidArgumentType); ok {
-						v.err = fmt.Errorf("invalid type for argument '%s' in call to '%s': expected %s, found %s",
-							e.Name, value.TypeName(), e.Expected, e.Found)
-						return
-					}
-
-					v.err = e
-					return
-				}
-
-				// nil return -> undefined
-				if ret == nil {
-					ret = objects.UndefinedValue
-				}
-
-				v.allocs--
-				if v.allocs == 0 {
-					v.err = ErrObjectAllocLimit
-					return
-				}
-
-				v.stack[v.sp] = ret
-				v.sp++
-
-			default:
-				v.err = fmt.Errorf("not callable: %s", callee.TypeName())
+			if recurse, exit := v.handleCall(numArgs); recurse {
+				continue
+			} else if exit {
 				return
 			}
 
@@ -1038,6 +933,161 @@ func (v *VM) run() {
 			return
 		}
 	}
+}
+
+func (v *VM) handleCall(numArgs int) (recurse bool, exit bool) {
+	//fmt.Println("handleCall ran")
+	value := v.stack[v.sp-1-numArgs]
+
+	switch callee := value.(type) {
+	case *objects.Closure:
+		// consolidate args into an array
+		if callee.Fn.VarArgs {
+			passedArgs := numArgs
+			numArgs = 1
+			args := make([]objects.Object, 0, passedArgs)
+
+			if passedArgs == 0 {
+				v.stack[v.sp] = &objects.Array{Value: args}
+				v.sp++
+			} else {
+				for i := 0; i < passedArgs; i++ {
+					args = append(args, v.stack[v.sp-passedArgs+i])
+				}
+
+				v.stack[v.sp-passedArgs] = &objects.Array{Value: args}
+				v.sp = v.sp - (passedArgs - 1)
+			}
+		}
+
+		if numArgs != callee.Fn.NumParameters {
+			v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d",
+				callee.Fn.NumParameters, numArgs)
+			return false, true
+		}
+
+		// test if it's tail-call
+		if callee.Fn == v.curFrame.fn { // recursion
+			nextOp := v.curInsts[v.ip+1]
+			if nextOp == compiler.OpReturn ||
+				(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
+				for p := 0; p < numArgs; p++ {
+					v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
+				}
+				v.sp -= numArgs + 1
+				v.ip = -1 // reset IP to beginning of the frame
+				return true, false
+			}
+		}
+
+		// update call frame
+		v.curFrame.ip = v.ip // store current ip before call
+		v.curFrame = &(v.frames[v.framesIndex])
+		v.curFrame.fn = callee.Fn
+		v.curFrame.freeVars = callee.Free
+		v.curFrame.basePointer = v.sp - numArgs
+		v.curInsts = callee.Fn.Instructions
+		v.ip = -1
+		v.framesIndex++
+		v.sp = v.sp - numArgs + callee.Fn.NumLocals
+
+	case *objects.CompiledFunction:
+		// consolidate args into an array
+		if callee.VarArgs {
+			passedArgs := numArgs
+			numArgs = 1
+			args := make([]objects.Object, 0, passedArgs)
+
+			if passedArgs == 0 {
+				v.stack[v.sp] = &objects.Array{Value: args}
+				v.sp++
+			} else {
+
+				for i := 0; i < passedArgs; i++ {
+					args = append(args, v.stack[v.sp-passedArgs+i])
+				}
+
+				v.stack[v.sp-passedArgs] = &objects.Array{Value: args}
+				v.sp = v.sp - (passedArgs - 1)
+			}
+		}
+
+		if numArgs != callee.NumParameters {
+			v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d",
+				callee.NumParameters, numArgs)
+			return false, true
+		}
+
+		// test if it's tail-call
+		if callee == v.curFrame.fn { // recursion
+			nextOp := v.curInsts[v.ip+1]
+			if nextOp == compiler.OpReturn ||
+				(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
+				for p := 0; p < numArgs; p++ {
+					v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
+				}
+				v.sp -= numArgs + 1
+				v.ip = -1 // reset IP to beginning of the frame
+				return true, false
+			}
+		}
+
+		// update call frame
+		v.curFrame.ip = v.ip // store current ip before call
+		v.curFrame = &(v.frames[v.framesIndex])
+		v.curFrame.fn = callee
+		v.curFrame.freeVars = nil
+		v.curFrame.basePointer = v.sp - numArgs
+		v.curInsts = callee.Instructions
+		v.ip = -1
+		v.framesIndex++
+		v.sp = v.sp - numArgs + callee.NumLocals
+
+	case objects.Callable:
+		var args []objects.Object
+		args = append(args, v.stack[v.sp-numArgs:v.sp]...)
+
+		ret, e := callee.Call(args...)
+		v.sp -= numArgs + 1
+
+		// runtime error
+		if e != nil {
+			if e == objects.ErrWrongNumArguments {
+				v.err = fmt.Errorf("wrong number of arguments in call to '%s'",
+					value.TypeName())
+				return
+			}
+
+			if e, ok := e.(objects.ErrInvalidArgumentType); ok {
+				v.err = fmt.Errorf("invalid type for argument '%s' in call to '%s': expected %s, found %s",
+					e.Name, value.TypeName(), e.Expected, e.Found)
+				return
+			}
+
+			v.err = e
+			return false, true
+		}
+
+		// nil return -> undefined
+		if ret == nil {
+			ret = objects.UndefinedValue
+		}
+
+		v.allocs--
+		if v.allocs == 0 {
+			v.err = ErrObjectAllocLimit
+			return false, true
+		}
+
+		v.stack[v.sp] = ret
+		v.sp++
+
+	default:
+		v.err = fmt.Errorf("not callable: %s", callee.TypeName())
+		return false, true
+	}
+
+	return false, false
 }
 
 // IsStackEmpty tests if the stack is empty or not.

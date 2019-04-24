@@ -43,3 +43,7 @@ func (o *Closure) IsFalsy() bool {
 func (o *Closure) Equals(x Object) bool {
 	return false
 }
+
+func (o *Closure) Call(args ...Object) (Object, error) {
+	return o.Fn.Fn(args...)
+}
