@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"errors"
+
 	"github.com/d5/tengo/compiler/token"
 )
 
@@ -42,4 +44,11 @@ func (o *Closure) IsFalsy() bool {
 // is equal to the value of another object.
 func (o *Closure) Equals(x Object) bool {
 	return false
+}
+
+func (o *Closure) Call(args ...Object) (Object, error) {
+	if o.Fn.vmCall == nil {
+		return nil, errors.New("unable to call closure, no associated vm")
+	}
+	return o.Fn.vmCall(o, args)
 }

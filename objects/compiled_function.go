@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"errors"
+
 	"github.com/d5/tengo/compiler/source"
 	"github.com/d5/tengo/compiler/token"
 )
@@ -60,4 +62,11 @@ func (o *CompiledFunction) SourcePos(ip int) source.Pos {
 		ip--
 	}
 	return source.NoPos
+}
+
+func (o *CompiledFunction) Call(args ...Object) (Object, error) {
+	if o.vmCall == nil {
+		return nil, errors.New("unable to call function, no associated vm")
+	}
+	return o.vmCall(o, args)
 }

@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/d5/tengo/compiler"
 	"github.com/d5/tengo/compiler/source"
@@ -12,7 +13,8 @@ import (
 
 const (
 	// StackSize is the maximum stack size.
-	StackSize = 2048
+	// StackSize = 2048
+	StackSize = 4096
 
 	// GlobalsSize is the maximum number of global variables.
 	GlobalsSize = 1024
@@ -53,6 +55,12 @@ func NewVM(bytecode *compiler.Bytecode, globals []objects.Object, maxAllocs int6
 		framesIndex: 1,
 		ip:          -1,
 		maxAllocs:   maxAllocs,
+	}
+
+	for _, c := range v.constants {
+		if fn, ok := c.(*objects.CompiledFunction); ok {
+			(*compiledFunction)(unsafe.Pointer(fn)).vmCall = v.callObject
+		}
 	}
 
 	v.frames[0].fn = bytecode.MainFunction
@@ -99,10 +107,37 @@ func (v *VM) Run() (err error) {
 	return nil
 }
 
+func (v *VM) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			if v.sp >= StackSize || v.framesIndex >= MaxFrames {
+				v.err = ErrStackOverflow
+				return
+			}
+
+			if v.ip < len(v.curInsts)-1 {
+				if err, ok := r.(error); ok {
+					v.err = err
+				} else {
+					v.err = fmt.Errorf("panic: %v", r)
+				}
+			}
+		}
+	}()
+
+	for atomic.LoadInt64(&v.aborting) == 0 {
+		if die := v.processInst(); die {
+			return
+		}
+	}
+}
+
 func (v *VM) processInst() (die bool) {
 	v.ip++
 
 	switch v.curInsts[v.ip] {
+	case compiler.OpBreak:
+		return true // exit a run loop. use internally by vm to allow go code to call tengo code
 	case compiler.OpConstant:
 		v.ip += 2
 		cidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
@@ -654,9 +689,11 @@ func (v *VM) processInst() (die bool) {
 
 			// test if it's tail-call
 			if callee.Fn == v.curFrame.fn { // recursion
+				// fmt.Println("closure recursing")
 				nextOp := v.curInsts[v.ip+1]
 				if nextOp == compiler.OpReturn ||
 					(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
+					// fmt.Println("closure recursing on stack")
 					for p := 0; p < numArgs; p++ {
 						v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
 					}
@@ -708,9 +745,11 @@ func (v *VM) processInst() (die bool) {
 
 			// test if it's tail-call
 			if callee == v.curFrame.fn { // recursion
+				// fmt.Println("recursing")
 				nextOp := v.curInsts[v.ip+1]
 				if nextOp == compiler.OpReturn ||
 					(nextOp == compiler.OpPop && compiler.OpReturn == v.curInsts[v.ip+2]) {
+					// fmt.Println("function recursing on stack")
 					for p := 0; p < numArgs; p++ {
 						v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
 					}
@@ -1030,31 +1069,6 @@ func (v *VM) processInst() (die bool) {
 	}
 
 	return false
-}
-
-func (v *VM) run() {
-	defer func() {
-		if r := recover(); r != nil {
-			if v.sp >= StackSize || v.framesIndex >= MaxFrames {
-				v.err = ErrStackOverflow
-				return
-			}
-
-			if v.ip < len(v.curInsts)-1 {
-				if err, ok := r.(error); ok {
-					v.err = err
-				} else {
-					v.err = fmt.Errorf("panic: %v", r)
-				}
-			}
-		}
-	}()
-
-	for atomic.LoadInt64(&v.aborting) == 0 {
-		if die := v.processInst(); die {
-			return
-		}
-	}
 }
 
 // IsStackEmpty tests if the stack is empty or not.
