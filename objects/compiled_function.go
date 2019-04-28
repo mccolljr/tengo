@@ -12,6 +12,7 @@ type CompiledFunction struct {
 	NumParameters int
 	VarArgs       bool
 	SourceMap     map[int]source.Pos
+	vmCall        func(fn Object, args []Object) (Object, error)
 }
 
 // TypeName returns the name of the type.
