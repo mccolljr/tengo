@@ -23,20 +23,23 @@ const (
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
 type VM struct {
-	constants   []objects.Object
-	stack       [StackSize]objects.Object
-	sp          int
-	globals     []objects.Object
-	fileSet     *source.FileSet
-	frames      [MaxFrames]Frame
-	framesIndex int
-	curFrame    *Frame
-	curInsts    []byte
-	ip          int
-	aborting    int64
-	maxAllocs   int64
-	allocs      int64
-	err         error
+	constants    []objects.Object
+	stack        [StackSize]objects.Object
+	sp           int
+	globals      []objects.Object
+	fileSet      *source.FileSet
+	frames       [MaxFrames]Frame
+	framesIndex  int
+	curFrame     *Frame
+	curInsts     []byte
+	ip           int
+	aborting     int64
+	maxAllocs    int64
+	allocs       int64
+	err          error
+	interrupt    chan struct{}
+	releaser     chan chan struct{}
+	canInterrupt bool
 }
 
 // NewVM creates a VM.
@@ -46,13 +49,16 @@ func NewVM(bytecode *compiler.Bytecode, globals []objects.Object, maxAllocs int6
 	}
 
 	v := &VM{
-		constants:   bytecode.Constants,
-		sp:          0,
-		globals:     globals,
-		fileSet:     bytecode.FileSet,
-		framesIndex: 1,
-		ip:          -1,
-		maxAllocs:   maxAllocs,
+		constants:    bytecode.Constants,
+		sp:           0,
+		globals:      globals,
+		fileSet:      bytecode.FileSet,
+		framesIndex:  1,
+		ip:           -1,
+		maxAllocs:    maxAllocs,
+		interrupt:    make(chan struct{}),
+		releaser:     make(chan chan struct{}),
+		canInterrupt: true,
 	}
 
 	v.frames[0].fn = bytecode.MainFunction
@@ -66,6 +72,34 @@ func NewVM(bytecode *compiler.Bytecode, globals []objects.Object, maxAllocs int6
 // Abort aborts the execution.
 func (v *VM) Abort() {
 	atomic.StoreInt64(&v.aborting, 1)
+}
+
+func (v *VM) checkForInterrupt() {
+	select {
+	case <-v.interrupt:
+		wait := make(chan struct{})
+		v.releaser <- wait
+		<-wait
+		if v.err != nil {
+			return
+		}
+	default:
+		// continue on
+	}
+}
+
+// CallAsync requests control of the VM, runs the call, and releases the VM back to
+// the previous owner
+func (v *VM) CallAsync(fn objects.Object, args ...objects.Object) (objects.Object, error) {
+	v.interrupt <- struct{}{}  // request the VM
+	doneSignal := <-v.releaser // get signaler to let the VM know when we're done
+	v.canInterrupt = false     // only the main thread accepts interrupts
+	defer func() {
+		v.canInterrupt = true // resume accepting interrupts
+		close(doneSignal)     // return control of the VM to the main thread
+	}() // make sure we release the VM
+
+	return v.Call(fn, args...) // do the call
 }
 
 // Call provides a hook for go code to initiate a call to a tengo function
@@ -97,6 +131,7 @@ func (v *VM) Call(fn objects.Object, args ...objects.Object) (retVal objects.Obj
 	v.framesIndex++
 
 	// set up the stack for the call in the micro-function
+	//v.sp++ // for safety
 	spStart := v.sp
 	spEnd := spStart + numArgs + 1
 	v.stack[v.sp] = fn
@@ -121,7 +156,6 @@ func (v *VM) Call(fn objects.Object, args ...objects.Object) (retVal objects.Obj
 	v.curInsts = v.curFrame.fn.Instructions
 	v.ip = v.curFrame.ip
 	v.sp = v.frames[v.framesIndex].basePointer
-
 	return retVal, retErr
 }
 
@@ -413,6 +447,11 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = arr
 			v.sp++
+
+			// check for interrupt after creating an array
+			if v.canInterrupt {
+				v.checkForInterrupt()
+			}
 
 		case compiler.OpMap:
 			v.ip += 2
@@ -821,6 +860,11 @@ func (v *VM) run() {
 
 				v.stack[v.sp] = ret
 				v.sp++
+			}
+
+			// check for interrupt after a call completes
+			if v.canInterrupt {
+				v.checkForInterrupt()
 			}
 
 		case compiler.OpReturn:
