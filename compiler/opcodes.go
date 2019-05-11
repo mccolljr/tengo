@@ -48,6 +48,9 @@ const (
 	OpBinaryOp                    // Binary Operation
 	OpSuspend                     // Used internally by the VM to suspend execution
 	OpSpread                      // Spread operation
+	OpSleep                       // Sleep operation
+	OpSpawn                       // Spawn operation
+	OpWait                        // Wait operation
 )
 
 // OpcodeNames is opcode names.
@@ -95,6 +98,9 @@ var OpcodeNames = [...]string{
 	OpBinaryOp:      "BINARYOP",
 	OpSuspend:       "SUSPEND",
 	OpSpread:        "SPREAD",
+	OpSleep:         "SLEEP",
+	OpSpawn:         "SPAWN",
+	OpWait:          "WAIT",
 }
 
 // OpcodeOperands is the number of operands.
@@ -142,6 +148,9 @@ var OpcodeOperands = [...][]int{
 	OpBinaryOp:      {1},
 	OpSuspend:       {},
 	OpSpread:        {},
+	OpSleep:         {},
+	OpSpawn:         {},
+	OpWait:          {},
 }
 
 // ReadOperands reads operands from the bytecode.
