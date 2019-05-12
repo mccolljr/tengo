@@ -72,6 +72,7 @@ func (v *Thread) call(fn objects.Object, args []objects.Object) (retVal objects.
 	if v.err != nil {
 		return nil, v.err
 	}
+
 	// no error, get return
 	retVal = v.stack[v.sp-1]
 
@@ -87,16 +88,18 @@ func (v *Thread) call(fn objects.Object, args []objects.Object) (retVal objects.
 
 func (v *Thread) execute() {
 	v.vm.acquire(v.id)
+	defer v.vm.release()
+
 	if v.vm.currentThread != v {
 		panic("uh oh")
 	}
+
 	v.run()
+
 	if !v.isMain {
 		if v.err != nil {
 			v.vm.threadResults[v.id] = &objects.Error{
-				Value: &objects.String{
-					Value: v.err.Error(),
-				},
+				Value: &objects.String{Value: v.err.Error()},
 			}
 		} else {
 			ret := v.stack[0]
@@ -105,10 +108,10 @@ func (v *Thread) execute() {
 			}
 			v.vm.threadResults[v.id] = ret
 		}
+
 		delete(v.vm.threads, v.id)
 		v.vm.threadPool <- v
 	}
-	v.vm.release()
 }
 
 func (v *Thread) run() {
