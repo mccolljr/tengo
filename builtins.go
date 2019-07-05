@@ -1,41 +1,48 @@
 package tengo
 
+import (
+	"fmt"
+
+	"github.com/d5/tengo/compiler/token"
+)
+
 // Builtins contains all default builtin functions.
 // Use GetBuiltinFunctions instead of accessing Builtins directly.
 var Builtins = []*BuiltinFunction{
-	{Name: "len", Value: builtinLen},
-	{Name: "copy", Value: builtinCopy},
-	{Name: "append", Value: builtinAppend},
-	{Name: "string", Value: builtinString},
-	{Name: "int", Value: builtinInt},
-	{Name: "bool", Value: builtinBool},
-	{Name: "float", Value: builtinFloat},
-	{Name: "char", Value: builtinChar},
-	{Name: "bytes", Value: builtinBytes},
-	{Name: "time", Value: builtinTime},
-	{Name: "is_int", Value: builtinIsInt},
-	{Name: "is_float", Value: builtinIsFloat},
-	{Name: "is_string", Value: builtinIsString},
-	{Name: "is_bool", Value: builtinIsBool},
-	{Name: "is_char", Value: builtinIsChar},
-	{Name: "is_bytes", Value: builtinIsBytes},
-	{Name: "is_array", Value: builtinIsArray},
-	{Name: "is_immutable_array", Value: builtinIsImmutableArray},
-	{Name: "is_map", Value: builtinIsMap},
-	{Name: "is_immutable_map", Value: builtinIsImmutableMap},
-	{Name: "is_iterable", Value: builtinIsIterable},
-	{Name: "is_time", Value: builtinIsTime},
-	{Name: "is_error", Value: builtinIsError},
-	{Name: "is_undefined", Value: builtinIsUndefined},
-	{Name: "is_function", Value: builtinIsFunction},
-	{Name: "is_callable", Value: builtinIsCallable},
-	{Name: "type_name", Value: builtinTypeName},
-	{Name: "format", Value: builtinFormat},
-	{Name: "bind", Value: builtinBind},
+	{Name: "len", Value: BuiltinLen},
+	{Name: "copy", Value: BuiltinCopy},
+	{Name: "append", Value: BuiltinAppend},
+	{Name: "string", Value: BuiltinString},
+	{Name: "int", Value: BuiltinInt},
+	{Name: "bool", Value: BuiltinBool},
+	{Name: "float", Value: BuiltinFloat},
+	{Name: "char", Value: BuiltinChar},
+	{Name: "bytes", Value: BuiltinBytes},
+	{Name: "time", Value: BuiltinTime},
+	{Name: "is_int", Value: BuiltinIsInt},
+	{Name: "is_float", Value: BuiltinIsFloat},
+	{Name: "is_string", Value: BuiltinIsString},
+	{Name: "is_bool", Value: BuiltinIsBool},
+	{Name: "is_char", Value: BuiltinIsChar},
+	{Name: "is_bytes", Value: BuiltinIsBytes},
+	{Name: "is_array", Value: BuiltinIsArray},
+	{Name: "is_immutable_array", Value: BuiltinIsImmutableArray},
+	{Name: "is_map", Value: BuiltinIsMap},
+	{Name: "is_immutable_map", Value: BuiltinIsImmutableMap},
+	{Name: "is_iterable", Value: BuiltinIsIterable},
+	{Name: "is_time", Value: BuiltinIsTime},
+	{Name: "is_error", Value: BuiltinIsError},
+	{Name: "is_undefined", Value: BuiltinIsUndefined},
+	{Name: "is_function", Value: BuiltinIsFunction},
+	{Name: "is_callable", Value: BuiltinIsCallable},
+	{Name: "type_name", Value: BuiltinTypeName},
+	{Name: "format", Value: BuiltinFormat},
+	{Name: "bind", Value: BuiltinBind},
+	{Name: token.Class.String(), Value: BuiltinClass},
 }
 
 // len(obj object) => int
-func builtinLen(_ Interop, args ...Object) (Object, error) {
+func BuiltinLen(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -63,7 +70,7 @@ func builtinLen(_ Interop, args ...Object) (Object, error) {
 }
 
 // append(arr, items...)
-func builtinAppend(_ Interop, args ...Object) (Object, error) {
+func BuiltinAppend(_ Interop, args ...Object) (Object, error) {
 	if len(args) < 2 {
 		return nil, ErrWrongNumArguments
 	}
@@ -82,7 +89,7 @@ func builtinAppend(_ Interop, args ...Object) (Object, error) {
 	}
 }
 
-func builtinString(_ Interop, args ...Object) (Object, error) {
+func BuiltinString(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -108,7 +115,7 @@ func builtinString(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinInt(_ Interop, args ...Object) (Object, error) {
+func BuiltinInt(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -130,7 +137,7 @@ func builtinInt(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinFloat(_ Interop, args ...Object) (Object, error) {
+func BuiltinFloat(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -152,7 +159,7 @@ func builtinFloat(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinBool(_ Interop, args ...Object) (Object, error) {
+func BuiltinBool(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -173,7 +180,7 @@ func builtinBool(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinChar(_ Interop, args ...Object) (Object, error) {
+func BuiltinChar(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -195,7 +202,7 @@ func builtinChar(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinBytes(_ Interop, args ...Object) (Object, error) {
+func BuiltinBytes(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -226,7 +233,7 @@ func builtinBytes(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinTime(_ Interop, args ...Object) (Object, error) {
+func BuiltinTime(_ Interop, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
 		return nil, ErrWrongNumArguments
@@ -248,7 +255,7 @@ func builtinTime(_ Interop, args ...Object) (Object, error) {
 	return UndefinedValue, nil
 }
 
-func builtinCopy(_ Interop, args ...Object) (Object, error) {
+func BuiltinCopy(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -256,7 +263,7 @@ func builtinCopy(_ Interop, args ...Object) (Object, error) {
 	return args[0].Copy(), nil
 }
 
-func builtinFormat(_ Interop, args ...Object) (Object, error) {
+func BuiltinFormat(_ Interop, args ...Object) (Object, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return nil, ErrWrongNumArguments
@@ -283,7 +290,7 @@ func builtinFormat(_ Interop, args ...Object) (Object, error) {
 	return &String{Value: s}, nil
 }
 
-func builtinTypeName(_ Interop, args ...Object) (Object, error) {
+func BuiltinTypeName(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -291,7 +298,7 @@ func builtinTypeName(_ Interop, args ...Object) (Object, error) {
 	return &String{Value: args[0].TypeName()}, nil
 }
 
-func builtinIsString(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsString(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -303,7 +310,7 @@ func builtinIsString(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsInt(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsInt(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -315,7 +322,7 @@ func builtinIsInt(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsFloat(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsFloat(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -327,7 +334,7 @@ func builtinIsFloat(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsBool(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsBool(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -339,7 +346,7 @@ func builtinIsBool(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsChar(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsChar(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -351,7 +358,7 @@ func builtinIsChar(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsBytes(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsBytes(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -363,7 +370,7 @@ func builtinIsBytes(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsArray(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsArray(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -375,7 +382,7 @@ func builtinIsArray(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsImmutableArray(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsImmutableArray(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -387,7 +394,7 @@ func builtinIsImmutableArray(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsMap(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsMap(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -399,7 +406,7 @@ func builtinIsMap(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsImmutableMap(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsImmutableMap(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -411,7 +418,7 @@ func builtinIsImmutableMap(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsTime(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsTime(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -423,7 +430,7 @@ func builtinIsTime(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsError(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsError(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -435,7 +442,7 @@ func builtinIsError(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsUndefined(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsUndefined(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -447,7 +454,7 @@ func builtinIsUndefined(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsFunction(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsFunction(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -460,7 +467,7 @@ func builtinIsFunction(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsCallable(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsCallable(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -472,7 +479,7 @@ func builtinIsCallable(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinIsIterable(_ Interop, args ...Object) (Object, error) {
+func BuiltinIsIterable(_ Interop, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, ErrWrongNumArguments
 	}
@@ -484,7 +491,7 @@ func builtinIsIterable(_ Interop, args ...Object) (Object, error) {
 	return FalseValue, nil
 }
 
-func builtinBind(_ Interop, args ...Object) (Object, error) {
+func BuiltinBind(_ Interop, args ...Object) (Object, error) {
 	if len(args) == 0 {
 		return nil, ErrWrongNumArguments
 	}
@@ -493,5 +500,51 @@ func builtinBind(_ Interop, args ...Object) (Object, error) {
 		Value: func(rt Interop, newArgs ...Object) (ret Object, err error) {
 			return rt.InteropCall(args[0], append(args[1:], newArgs...)...)
 		},
+	}, nil
+}
+
+func BuiltinClass(rt Interop, args ...Object) (Object, error) {
+	numArgs := len(args)
+	if numArgs < 2 || numArgs > 3 {
+		return nil, ErrWrongNumArguments
+	}
+
+	base := (*Class)(nil)
+	name := args[0]
+	body := args[1]
+	if numArgs == 3 {
+		c, ok := args[0].(*Class)
+		if !ok {
+			return nil, fmt.Errorf("class: extended object must be a class")
+		}
+		base = c
+		name = args[1]
+		body = args[2]
+	}
+
+	nameStr, _ := ToString(name)
+	if nameStr == "" {
+		return nil, fmt.Errorf("class: name must be non-empty string")
+	}
+
+	bodyMap := map[string]Object{}
+
+	switch real := body.(type) {
+	case *Map:
+		for k, v := range real.Value {
+			bodyMap[k] = v.Copy()
+		}
+	case *ImmutableMap:
+		for k, v := range real.Value {
+			bodyMap[k] = v.Copy()
+		}
+	default:
+		return nil, fmt.Errorf("class: body must be map or immutable-map")
+	}
+
+	return &Class{
+		Base: base,
+		Name: nameStr,
+		Body: bodyMap,
 	}, nil
 }

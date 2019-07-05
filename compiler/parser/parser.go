@@ -687,6 +687,8 @@ func (p *Parser) parseStmt() (stmt ast.Stmt) {
 		s := p.parseSimpleStmt(false)
 		p.expectSemi()
 		return s
+	case token.Class:
+		return p.parseClassStmt()
 	case token.Return:
 		return p.parseReturnStmt()
 	case token.Export:
@@ -915,6 +917,31 @@ func (p *Parser) makeExpr(s ast.Stmt, want string) ast.Expr {
 	p.error(s.Pos(), fmt.Sprintf("expected %s, found %s", want, found))
 
 	return &ast.BadExpr{From: s.Pos(), To: p.safePos(s.End())}
+}
+
+func (p *Parser) parseClassStmt() *ast.ClassStmt {
+	if p.trace {
+		defer un(trace(p, "ClassStmt"))
+	}
+
+	pos := p.pos
+	p.expect(token.Class)
+
+	name := p.parseIdent()
+	ext := (*ast.Ident)(nil)
+	if p.token == token.Colon {
+		p.next()
+		ext = p.parseIdent()
+	}
+
+	body := p.parseMapLit()
+	p.expectSemi()
+	return &ast.ClassStmt{
+		ClassPos: pos,
+		Name:     name,
+		Extends:  ext,
+		Body:     body,
+	}
 }
 
 func (p *Parser) parseReturnStmt() ast.Stmt {

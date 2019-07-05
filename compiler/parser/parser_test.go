@@ -152,6 +152,15 @@ func returnStmt(pos source.Pos, result ast.Expr) *ast.ReturnStmt {
 	return &ast.ReturnStmt{Result: result, ReturnPos: pos}
 }
 
+func classStmt(pos source.Pos, name, ext *ast.Ident, body *ast.MapLit) *ast.ClassStmt {
+	return &ast.ClassStmt{
+		ClassPos: pos,
+		Name:     name,
+		Extends:  ext,
+		Body:     body,
+	}
+}
+
 func forStmt(init ast.Stmt, cond ast.Expr, post ast.Stmt, body *ast.BlockStmt, pos source.Pos) *ast.ForStmt {
 	return &ast.ForStmt{Cond: cond, Init: init, Post: post, Body: body, ForPos: pos}
 }
@@ -326,6 +335,16 @@ func equalStmt(t *testing.T, expected, actual ast.Stmt) bool {
 	case *ast.ReturnStmt:
 		return equalExpr(t, expected.Result, actual.(*ast.ReturnStmt).Result) &&
 			assert.Equal(t, expected.ReturnPos, actual.(*ast.ReturnStmt).ReturnPos)
+	case *ast.ClassStmt:
+		actualStmt := actual.(*ast.ClassStmt)
+		if (expected.Extends == nil || actualStmt.Extends == nil) &&
+			expected.Extends != actualStmt.Extends {
+			return false
+		}
+		return assert.Equal(t, expected.ClassPos, actualStmt.ClassPos) &&
+			equalExpr(t, expected.Name, actualStmt.Name) &&
+			(expected.Extends == nil || equalExpr(t, expected.Extends, actualStmt.Extends)) &&
+			equalExpr(t, expected.Body, actualStmt.Body)
 	case *ast.BranchStmt:
 		return equalExpr(t, expected.Label, actual.(*ast.BranchStmt).Label) &&
 			assert.Equal(t, expected.Token, actual.(*ast.BranchStmt).Token) &&

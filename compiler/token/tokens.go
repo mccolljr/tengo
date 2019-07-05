@@ -83,6 +83,7 @@ const (
 	Undefined
 	Import
 	Try
+	Class
 	_keywordEnd
 )
 
@@ -158,6 +159,7 @@ var tokens = [...]string{
 	Undefined:    "undefined",
 	Import:       "import",
 	Try:          "try",
+	Class:        "class",
 }
 
 func (tok Token) String() string {

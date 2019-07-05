@@ -64,6 +64,12 @@ func (o *CompiledFunction) SourcePos(ip int) source.Pos {
 	return source.NoPos
 }
 
+// Call executed the CompiledFunction via rt.InteropCall and returns
+// the result.
+func (o *CompiledFunction) Call(rt Interop, args ...Object) (Object, error) {
+	return rt.InteropCall(o, args...)
+}
+
 // CanCall returns whether the Object can be Called.
 func (o *CompiledFunction) CanCall() bool {
 	return true

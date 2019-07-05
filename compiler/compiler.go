@@ -311,6 +311,38 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 
+	case *ast.ClassStmt:
+		rhs := &ast.CallExpr{
+			Func:   &ast.Ident{Name: "class", NamePos: node.ClassPos},
+			LParen: node.ClassPos,
+			RParen: node.ClassPos,
+		}
+
+		if node.Extends != nil {
+			rhs.Args = []ast.Expr{
+				node.Extends,
+				&ast.StringLit{
+					Value:    node.Name.Name,
+					ValuePos: node.Name.NamePos,
+					Literal:  node.Name.Name,
+				},
+				node.Body,
+			}
+		} else {
+			rhs.Args = []ast.Expr{
+				&ast.StringLit{
+					Value:    node.Name.Name,
+					ValuePos: node.Name.NamePos,
+					Literal:  node.Name.Name,
+				},
+				node.Body,
+			}
+		}
+
+		if err := c.compileAssign(node, []ast.Expr{node.Name}, []ast.Expr{rhs}, token.Define); err != nil {
+			return err
+		}
+
 	case *ast.Ident:
 		symbol, _, ok := c.symbolTable.Resolve(node.Name)
 		if !ok {
