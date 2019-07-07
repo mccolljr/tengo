@@ -39,9 +39,9 @@ func expect(t *testing.T, code string, inputs MAP, want interface{}) {
 	}
 
 	if goObj, ok := cmp.Get("out").Object().(*GoObject); ok {
-		if !reflect.DeepEqual(goObj.v.Interface(), want) {
-			t.Logf("%+v != %+v\n", goObj.v.Interface(), want)
-			t.Errorf("expected %[1]v (%[1]T), got %[2]v (%[2]T)", want, goObj.v.Interface())
+		if !reflect.DeepEqual(goObj.V.Interface(), want) {
+			t.Logf("%+v != %+v\n", goObj.V.Interface(), want)
+			t.Errorf("expected %[1]v (%[1]T), got %[2]v (%[2]T)", want, goObj.V.Interface())
 		}
 		return
 	}

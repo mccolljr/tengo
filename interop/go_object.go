@@ -66,7 +66,7 @@ func (o *GoObject) Equals(other tengo.Object) bool {
 func (o *GoObject) CanCall() bool { return o.V.Kind() == reflect.Func }
 func (o *GoObject) Call(rt tengo.Interop, args ...tengo.Object) (tengo.Object, error) {
 	if !o.CanCall() {
-		return nil, fmt.Errorf("%s is not callable", o.t)
+		return nil, fmt.Errorf("%s is not callable", o.V.Type())
 	}
 
 	typ := o.V.Type()
@@ -133,11 +133,11 @@ func (o *GoObject) Iterate() tengo.Iterator {
 		}
 
 		return &ChannelIterator{
-			chanv: o.v,
+			chanv: o.V,
 			count: -1,
 		}
 	default:
-		panic(fmt.Sprintf("cannot iterate value of type %s", o.t.Name()))
+		panic(fmt.Sprintf("cannot iterate value of type %s", o.V.Type().Name()))
 	}
 }
 

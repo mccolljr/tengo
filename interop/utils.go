@@ -15,8 +15,8 @@ var (
 
 func convert(from tengo.Object, to reflect.Type) reflect.Value {
 	if goObj, isGoObj := from.(*GoObject); isGoObj {
-		if goObj.t.AssignableTo(to) || to.AssignableTo(goObj.t) {
-			return goObj.v.Convert(to)
+		if goObj.V.Type().AssignableTo(to) || to.AssignableTo(goObj.V.Type()) {
+			return goObj.V.Convert(to)
 		}
 
 		return reflect.Value{}
