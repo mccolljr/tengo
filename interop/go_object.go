@@ -20,8 +20,7 @@ func FromValue(v reflect.Value) tengo.Object {
 	}
 
 	return &GoObject{
-		v: v,
-		t: v.Type(),
+		V: v,
 	}
 }
 
@@ -30,22 +29,21 @@ func FromInterface(src interface{}) tengo.Object {
 }
 
 type GoObject struct {
-	v reflect.Value
-	t reflect.Type
+	V reflect.Value
 }
 
-func (o *GoObject) TypeName() string { return "go:" + o.t.String() }
+func (o *GoObject) TypeName() string { return "go:" + o.V.Type().String() }
 
-func (o *GoObject) String() string { return fmt.Sprintf("%v", o.v) }
+func (o *GoObject) String() string { return fmt.Sprintf("%v", o.V) }
 
 func (o *GoObject) Copy() tengo.Object { return o }
 
 func (o *GoObject) IndexGet(key tengo.Object) (tengo.Object, error) {
-	return indexGet(o.v, key)
+	return indexGet(o.V, key)
 }
 
 func (o *GoObject) IndexSet(key, val tengo.Object) error {
-	return indexSet(o.v, key, val)
+	return indexSet(o.V, key, val)
 }
 
 func (o *GoObject) BinaryOp(op token.Token, rhs tengo.Object) (tengo.Object, error) {
@@ -53,11 +51,11 @@ func (o *GoObject) BinaryOp(op token.Token, rhs tengo.Object) (tengo.Object, err
 }
 
 func (o *GoObject) IsFalsy() bool {
-	switch o.v.Kind() {
+	switch o.V.Kind() {
 	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Chan, reflect.Interface, reflect.Func:
-		return o.v.IsNil()
+		return o.V.IsNil()
 	default:
-		return o.v.Interface() == reflect.Zero(o.t).Interface()
+		return o.V.Interface() == reflect.Zero(o.V.Type()).Interface()
 	}
 }
 
@@ -65,20 +63,21 @@ func (o *GoObject) Equals(other tengo.Object) bool {
 	return other == o
 }
 
-func (o *GoObject) CanCall() bool { return o.v.Kind() == reflect.Func }
+func (o *GoObject) CanCall() bool { return o.V.Kind() == reflect.Func }
 func (o *GoObject) Call(rt tengo.Interop, args ...tengo.Object) (tengo.Object, error) {
 	if !o.CanCall() {
 		return nil, fmt.Errorf("%s is not callable", o.t)
 	}
 
-	numIn := o.t.NumIn()
+	typ := o.V.Type()
+	numIn := typ.NumIn()
 	if len(args) != numIn {
 		return nil, tengo.ErrWrongNumArguments
 	}
 
 	ins := make([]reflect.Value, numIn)
 	for i := 0; i < numIn; i++ {
-		argTyp := o.t.In(i)
+		argTyp := typ.In(i)
 		arg := convert(args[i], argTyp)
 		if !arg.IsValid() {
 			return nil, tengo.ErrInvalidArgumentType{
@@ -89,7 +88,7 @@ func (o *GoObject) Call(rt tengo.Interop, args ...tengo.Object) (tengo.Object, e
 		}
 		ins[i] = arg
 	}
-	result := o.v.Call(ins)
+	result := o.V.Call(ins)
 	if len(result) == 0 {
 		return tengo.UndefinedValue, nil
 	}
@@ -108,28 +107,28 @@ func (o *GoObject) Call(rt tengo.Interop, args ...tengo.Object) (tengo.Object, e
 }
 
 func (o *GoObject) CanIterate() bool {
-	switch o.v.Kind() {
+	switch o.V.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
 		return true
 	case reflect.Chan:
-		return o.t.ChanDir() != reflect.SendDir
+		return o.V.Type().ChanDir() != reflect.SendDir
 	}
 	return false
 }
 
 func (o *GoObject) Iterate() tengo.Iterator {
-	switch o.v.Kind() {
+	switch o.V.Kind() {
 	case reflect.Map:
 		return &MapIterator{
-			iter: *o.v.MapRange(),
+			iter: *o.V.MapRange(),
 		}
 	case reflect.Array, reflect.Slice, reflect.String:
 		return &IndexIterator{
-			slice: o.v,
+			slice: o.V,
 			index: -1,
 		}
 	case reflect.Chan:
-		if o.t.ChanDir() == reflect.SendDir {
+		if o.V.Type().ChanDir() == reflect.SendDir {
 			panic("cannot iterate over send-only channel")
 		}
 
